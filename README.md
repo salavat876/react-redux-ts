@@ -1,46 +1,135 @@
-# Getting Started with Create React App
-
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
-
-## Available Scripts
-
 In the project directory, you can run:
-
 ### `yarn start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
-
-### `yarn test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
 ### `yarn build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Создаем типы для actions и action-creators
+``` TypeScript
+//user types
+export enum UserActionTypes {
+FETCH_USERS = "FETCH_USERS",
+FETCH_USERS_SUCCESS = "FETCH_USERS_SUCCESS",
+FETCH_USERS_ERROR = "FETCH_USERS_ERROR"
+}
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+export type UserState = {
+users:any[],
+loading:boolean,
+error:null | string
+}
+export type UserAction = FetchUserAction | FetchUserActionSuccess | FetchUserActionError;
+export interface FetchUserAction {
+type: UserActionTypes.FETCH_USERS
+}
+export interface FetchUserActionSuccess {
+type: UserActionTypes.FETCH_USERS_SUCCESS,
+payload:any[]
+}
+export interface FetchUserActionError {
+type:UserActionTypes.FETCH_USERS_ERROR,
+payload:any
+}
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+//todos types
+export interface TodoState {
+    todos:any[],
+    loading:boolean,
+    error:null|string,
+    page:number,
+    limit:number
+}
 
-### `yarn eject`
+export enum TodoActionTypes {
+    FETCH_TODOS = "FETCH_TODOS",
+    FETCH_TODOS_ERROR = "FETCH_TODOS_ERROR",
+    FETCH_TODOS_SUCCESS = "FETCH_TODOS_SUCCESS",
+    FETCH_TODOS_PAGE = "FETCH_TODOS_PAGE",
+}
+interface FetchTodoAction {
+    type:TodoActionTypes.FETCH_TODOS
+}
+interface FetchTodoSuccessAction {
+    type:TodoActionTypes.FETCH_TODOS_SUCCESS,
+    payload:any[]
+}
+interface FetchTodoErrorAction {
+    type:TodoActionTypes.FETCH_TODOS_ERROR,
+    payload:string
+}
+interface FetchTodoPageAction {
+    type:TodoActionTypes.FETCH_TODOS_PAGE,
+    payload:number
+}
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+export type TodoAction = FetchTodoAction | FetchTodoErrorAction | FetchTodoPageAction | FetchTodoSuccessAction;
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Создаем редьюсеры
+``` typescript
+import {UserActionTypes, UserState, UserAction} from '../../types/user'
+const initialState:UserState = {
+    users:[],
+    loading:false,
+    error:null
+}
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+export const userReducer = (state = initialState,action:UserAction):UserState => {
+    switch (action.type) {
+        case UserActionTypes.FETCH_USERS:{
+            return {loading:true,error:null,users:[]}
+        }
+        case UserActionTypes.FETCH_USERS_SUCCESS:{
+            return {loading:false,error:null,users:action.payload}
+        }
+        case UserActionTypes.FETCH_USERS_ERROR:{
+            return {loading:false,error:action.payload,users:[]}
+        }
+        default: return state
+    }
+}
+```
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## Хуки для `UseSelector` и `UseDispatch`
+```typescript
+// useActions or useDispatch
+import {useDispatch} from "react-redux";
+import {bindActionCreators} from "redux";
+import ActionCreators from '../store/actions/index'
 
-## Learn More
+export const useActions = () => {
+    const dispatch = useDispatch();
+    return bindActionCreators(ActionCreators,dispatch)
+}
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+// useSelector 
+import {TypedUseSelectorHook, useSelector} from "react-redux";
+import {RootState} from "../store/reducers";
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+export const useTypedSelector:TypedUseSelectorHook<RootState> = useSelector
+```
+
+## Пример использования экшена с типом 
+```typescript
+export const fetchUsers = () => {
+    return async (dispatch:Dispatch<UserAction>) => {
+        try {
+            dispatch({type:UserActionTypes.FETCH_USERS})
+            const response = await axios.get('https://jsonplaceholder.typicode.com/users')
+            setTimeout(()=>{dispatch({type:UserActionTypes.FETCH_USERS_SUCCESS,payload:response.data})},510)
+        }catch (e) {
+            dispatch(
+                {
+                    type:UserActionTypes.FETCH_USERS_ERROR,
+                    payload:'Что-то пошло не так!'
+                }
+            )
+        }
+    }
+}
+```
+
+## Пример использования `useActions` и `useTypedSelector`
+
+```typescript
+const {users,loading,error} = useTypedSelector((state) => state.user)
+const {fetchUsers} = useActions()
+```
